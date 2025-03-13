@@ -6,7 +6,7 @@ import sys
 import time
 
 from optparse import OptionParser
-
+from pprint import pprint as pp
 import parsers.hbatch
 
 import hou
@@ -68,6 +68,18 @@ if force_hip:
     hou.allowEnvironmentToOverwriteVariable('HIP', True)
     hou.hscript('set HIP=' + envhip)
 
+pp('----------------------Houdini ENV---------------')
+prj=''
+for k in os.environ.keys():
+    try:
+        pp(k+' = '+hou.getenv(k))
+        if k=='PRJ':
+            prj=os.environ.get(k,'')
+            hou.allowEnvironmentToOverwriteVariable(k, True)
+    except:
+        pass
+pp('----------------------Houdini ENV END---------------')
+
 # Note that we ignore all load warnings.
 try:
     hou.hipFile.load(hip)
@@ -75,17 +87,28 @@ except hou.LoadWarning:
     pass
 # hou.hipFile.load( hip, True)
 
+#if prj:
+#    hou.hscript('set PRJ=%s' % prj)
+#    hou.hscript("varchange PRJ") 
+#    print('PRJ set to "%s"' % prj)
+
+
 if force_hip:
     hou.hscript('set HIPNAME=%s' % os.path.basename(hip))
     hou.hscript('set HIP=%s' % envhip)
     print('HIP set to "%s"' % envhip)
+
 
 # Establish ROP to be used
 if rop[0] != '/':
     rop = '/out/' + rop
 
 ropnode = hou.node(rop)
-
+pp('----------------------Houdini ENV---------------')
+for k in os.environ.keys():
+    pp(k+' = '+str(os.environ.get(k,'')))
+    #hou.allowEnvironmentToOverwriteVariable(k, True)
+pp('----------------------Houdini ENV END---------------')
 if ropnode is None:
     raise hou.InvalidNodeName(rop + " rop node wasn't found")
 
@@ -286,11 +309,12 @@ multisampled_rops = ["alembic"]
 fetched_rop = drivertypename
 
 # Add USDs Rops to multisamples if need
-if drivertypename in ["usd_rop", "usd"]:
+if drivertypename in ["usd_rop", "usd", "usdexport"]:
     try:
         mode = ropnode.evalParm('fileperframe')
         trange = ropnode.evalParm('trange')
-        if mode == 0 and trange != 0:
+        output_file = ropnode.parm('lopoutput').rawValue()
+        if not "$F" in output_file and trange != 0:
             multisampled_rops.append(drivertypename)
     except:
         pass
@@ -298,7 +322,7 @@ if drivertypename in ["usd_rop", "usd"]:
 if drivertypename == "fetch":
     fetched_rop = hou.node(ropnode.parm("source").eval()).type().name()
 
-# Trying on Alfred Style Progress 
+# Trying on Alfred Style Progress
 try:
     ropnode.parm("alfprogress").set(1)
 except:
